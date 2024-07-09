@@ -1,0 +1,272 @@
+/* The content strategy team needs a list of all tv shows on Netflix with at least a 7.0 score on IMDb and at least a 75 Rotten Tomatoes score for shows released after our inception. Sort by the score from largest to smallest, then by the title name from A to Z.*/
+
+select title, year, imdb, rotten_tomatoes, netflix
+from streaming_shows
+where netflix = 1 and imdb >=7 and rotten_tomatoes >=75 and year > 1997
+order by imdb desc, title asc
+
+/* List of millennial users in our top market that joined in the last year whose monthly subscription is at least $14.99 per month. Sort by the country from A to Z, then by the join date from newest to oldest if you may. */
+
+select user_id, age, country, join_date, monthly_revenue
+from userbase
+where age between 25 and 34 and country in ('United States', 'Canada') and join_date between '10/31/2022' and '10/31/2023' and monthly_revenue >= 14.99 
+order by country asc, join_date desc
+
+/* What were the 25 longest movies outside of our top markets released prior to the pandemic? */
+
+select type, title, country, release_year, duration
+from titles
+where type = 'Movie' and release_year < 2020 and
+(country not like '%United States%' and country not like '%Canada%')
+order by duration desc
+limit 25
+
+/* Return All users who joined the quarter after the start of the pandemic.*/
+
+select user_id, join_date, monthname (join_date) as Join_Month, quarter(join_date) as join_quarter, year (join_date) as join_year
+from userbase
+where year (join_date) = 2020 and quarter(join_date) = 2
+
+/* List of all titles that star Kevin Hart. Sort the titles by year of release please. */
+
+select title, "CAST", release_year
+from titles
+where "CAST" like '%Kevin Hart%' 
+order by release_year
+
+/*Can you pull the 5 best days for Netflix’s stock that took place after COVID for our IR team? */
+
+select trading_date, close
+from stock_price
+where trading_date >= '2020-04-01'
+order by close desc
+limit 5
+
+/* May you provide us with a list of countries, how many total titles are on Netflix in the country, and the pricing? */
+
+select country, no_of_tv_shows, no_of_movies, basic_cost_per_month, standard_cost_per_month, premium_cost_per_month, no_of_tv_shows+no_of_movies as TotalContent
+from netflix_countries
+
+/* Our normal trading volume on the market is roughly 6.5 million shares per day. Return a list of our stock 
+performance along with the trading dates for stocks that traded at least normal volume in Q3 and Q4 in 2021. 
+Be sure to also calculate the difference between the open and close price as we will need this to analyze 
+fluctuations within the stock. */
+
+select trading_date, open, close, volume, quarter(trading_date) as StockQuarter, year(trading_date) as StockYear, close-open as PriceVariance
+from stock_price
+where volume >= 6500000 and quarter(trading_date) between 3 and 4 and year (trading_date) = 2021
+
+/* Which customers have been with us for at least 12 months? */
+
+select user_id, join_date, getdate () as TodaysDate, datediff (month, join_date, getdate ()) as AccountTerm
+from userbase
+where datediff (month, join_date, getdate ()) >= 12 
+
+/* The film industry wants to reduce movie duration in our top markets. 
+Which movies were over 2 hours in length that were released in the last 3 years
+in these markets? Sort by the longest length time (in hours) first. */
+
+select type, title, duration, duration/60 as Hours,
+country, release_year
+from titles 
+where duration/60 >2 and (country like '%United States%'or country like '%Canada%') and type = 'Movie' and release_year >= 2021
+order by  hours desc 
+
+/* We are considering a 15% increase for all plans for our top 10 countries with the largest content offering (excluding our top markets since we just did a price increase in our top markets). Yet, we only want to increase in these countries if the 15% increase does not exceed $1.50 per month. Return these countries with what the additional increase would be along with their new proposed prices and the size of their content. */
+
+select *, no_of_movies + no_of_tv_shows as TotalContent,
+basic_cost_per_month*.15 as BasicIncreaseAmount,
+standard_cost_per_month*.15 as StandardIncreaseAmount,
+premium_cost_per_month*.15 as PremiumIncreaseAmount,
+basic_cost_per_month*1.15 as newbasicprice,
+standard_cost_per_month*1.15 as newstandardprice,
+premium_cost_per_month*1.15 as newpremiumprice
+from netflix_countries
+where basic_cost_per_month*.15 <= 1.50 and standard_cost_per_month*.15 <= 1.50 and premium_cost_per_month*.15 <= 1.50
+
+/* Due to the high costs in streaming licensing, we are considering purging 10% of the current library size for all countries. If we were to do this, what would be the library size for each country after the 10% purge? */
+
+select country, no_of_movies, no_of_tv_shows,
+no_of_movies+no_of_tv_shows as TotalLibrary,
+(no_of_movies+no_of_tv_shows)*.10 as LibraryPurgeAmount,
+(no_of_movies+no_of_tv_shows)*.90 as NewLibrarySize
+from netflix_countries
+
+/* What is the total number of hours of movie content we currently have for movies that are at least 1.5 hours in length? */
+
+select  sum (duration/60) as Total_Movie_Min
+from titles
+where type = 'Movie' and duration >= 90
+
+/* What is the average movie time in hours for movies only in our top markets? Exclude documentaries. */
+
+select avg (duration/60) as Avg_Movie_Hours
+from titles
+where listed_in not like '%Documentaries%' and (country like '%United States%' or country like '%Canada%') and type = 'Movie'
+
+/* What is the highest premium monthly rate with the new 15% increase in price?*/
+
+select max (premium_usd * 1.15) as Highest_New_Premium_Price
+from netflix_prices
+
+/* What is the highest, lowest, and average closing stock price?*/
+
+select cast (max (close) as decimal (18,2)) as HighestPrice, cast (min (close) as decimal (18,2)) as LowestPrice, cast (avg (close) as decimal (18,2)) as AVGCLose
+from stock_price
+
+/* What is the average/highest/lowest monthly subscription cost, and number of customers for our non top markets for mobile users for users that joined during weekdays in March and April of 2022?*/
+
+select cast (avg (monthly_revenue) as decimal) as avgsubprice, max (monthly_revenue) as highsubprice, min (monthly_revenue) as lowsubprice, count (user_id) as CustomerCount
+from userbase
+where country not in ('United States', 'Canada') and primary_device != 'Smart TV' and dayname (join_date) not in ('Sat', 'Sun') and monthname (join_date) in ('Mar', 'Apr') and year (join_date)= 2022
+
+/* Within our current content offering, when were the oldest and newest movies released, along with the number of movies, Julia Roberts, Brad Pitt, and Leonardo DiCaprio have starred in? */
+
+select count (title) as NumberofMovies, min (release_year) as Oldestmovie, max (release_year) as newestmovie
+from titles
+where ("CAST" like '%Julia Roberts%' or "CAST" like '%Leonardo Di%' or "CAST" like '%Brad Pitt%') and type = 'Movie'
+
+/* Return a list of the 25 employees with the lowest hourly rate in any non support departments (Support Departments: HR, Marketing, and Sales) who reside in the tri-state area: Connecticut, New Jersey, and New York */
+
+select emplfirst, empllast, department, state, hourly_rate
+from employee_demographics
+where department not in ('HR','Marketing','Sales') and state in ('CT','NJ','NY') 
+order by hourly_rate asc
+limit 25
+
+/* The Director of Patient Services of the West Coast Division (California, Nevada, Arizona, Oregon, Washington, New Mexico, and Texas) is looking for patients in her division who are senior citizens (66 and older) whose claims took place between Q1 2022 and claims that were at least $100 and currently in pending status. She needs this information for any patients who have received any community or transportation named services. She does want to review this information for patients who are oldest first. */
+
+select first_name, last_name, age, state, quarter (date_of_claim) as quarteryear, year(date_of_claim) as yearofservice, servicename,claim_status, amount
+from patient_services_demographics
+where claim_status = 'Pending' and (servicename like '%Community%' or servicename like '%Transportation') and (state in ('CA','NV','AZ','OR','WA','NM','TX')) and amount >= 100 and quarter (date_of_claim) = 1 and year (date_of_claim) = 2022 and age >= 66
+order by age desc
+
+/* The CEO is in need of all employees who were hired in Q1 of this year that are in non support departments (HR and Sales are support departments) who reside in the tri state area (NY, CT, NJ) who make at least $75/hr and who participates in our benefits (401K and Healthcare). Sort by the department from A to Z, then by the salary from largest to smallest. */
+
+select emplfirst, empllast, department, state, quarter (hire_date) as hirequarter, year (hire_date) as hireyear, hourly_rate, company_match_ytd, health_insurance_prem
+from employee_demographics
+where department not in ('HR','Sales') and state in ('NY','CT','NJ') and hourly_rate >= 75 and company_match_ytd > 0 and health_insurance_prem > 0 and 
+quarter (hire_date) = 1 and year (hire_date) = 2024
+order by department asc, hourly_rate desc
+
+/* Which patients received community and transportation services in June 2022 that had claims with a 1000 code? */
+
+select first_name,last_name,servicename, monthname (service_delivery_date) as monthofservice, year (service_delivery_date) as yearofservice,servicecode
+from patient_services_demographics
+where monthname (service_delivery_date)= 'Jun' and year (service_delivery_date)= 2022 and (servicename like '%Community%' or servicename like '%Transportation%') and servicecode like '%1000%'
+
+/* Include all userbase data for our Gmail domain Netflix users, along with their first names and last names. */
+
+select userbase.*,sub_demo.sub_fname, sub_demo.sub_lname, sub_demo.e_dom
+from sub_demo full join userbase on userbase.user_id=sub_demo.sub_id
+where sub_demo.e_dom = '@gmail.com'
+
+/* Which stock dates are included in both the History and the Stock Prices table? Be sure to include the month’s name, quarter, and day of the week for each of the stock dates. Also, calculate how long ago the stock trading date was in days. */
+
+select stock_price.trading_date as Stock_price_date, history_stock.trading_date as history_date, monthname (stock_price.trading_date) as trading_month, quarter (stock_price.trading_date) as trading_qtr, dayname (stock_price.trading_date) as Trading_DOW, datediff (day, stock_price.trading_date,getdate()) as DaysSinceTraded
+from history_stock join stock_price on stock_price.trading_date=history_stock.trading_date
+
+/* Which stock dates from the History Stock table are not currently included in our Stock Prices table? */
+
+select history_stock.trading_date as history_date, stock_price.trading_date as stock_date
+from stock_price right join history_stock on history_stock.trading_date=stock_price.trading_date
+where stock_price.trading_date is null
+
+/* The Finance team is doing some pricing analysis for our non-top market customers and needs a list of our email subscribers, along with their names, country of residence, currency, and the USD pricing for all plans in their respective countries.*/
+
+select userbase.user_id,sub_demo.sub_fname, sub_demo.sub_lname, userbase.country, netflix_prices.currency, netflix_prices.basic_usd, netflix_prices.standard_usd, netflix_prices.premium_usd
+from userbase join email_sub on email_sub.id=userbase.user_id 
+join sub_demo on sub_demo.sub_id=userbase.user_id 
+join netflix_prices on netflix_prices.country=userbase.country
+where userbase.country not in ('United States', 'Canada')
+
+/* Our international finance team is asking if you can provide the domestic currency for all non-email subscribers located outside of our top markets. Thanks! */
+
+select userbase.user_id, email_sub.id, userbase.country, netflix_prices.currency
+from userbase left join email_sub on email_sub.id=userbase.user_id left join netflix_prices on netflix_prices.country=userbase.country
+where userbase.country not in ('United States', 'Canada') and email_sub.id is null
+
+/* Our Finance Director is wanting to see if there is a correlation between our stock price and subscriber registration for non Visa and Mastercard users. They want to see how our stock price can be impacted based on the potential new laws on credit card fees with Visa and Mastercard. They want to see if on the days there were stock trades and new users who joined on those days, how many of those users registered didn’t use Visas or Mastercards. */
+
+select userbase.user_id, userbase.join_date, cof.cof_type, stock_price.trading_date
+from userbase join cof on userbase.user_id=cof.cc_id join stock_price on stock_price.trading_date=userbase.join_date
+where cof.cof_type not in ('VISA', 'MC')
+
+/* Calculate the following within one query:
+
+Average annual salary
+Maximum annual salary
+Minimum annual salary
+Number of employees*/
+
+select avg (hourly_rate*2080) as avgannualsalary, max (hourly_rate*2080) as maxannualsalary, min(hourly_rate*2080) as minannualsalary, 
+count (employee_id) as Num_of_employees
+from employee_demographics
+
+/* Return the following information for wholesale items purchased at malls and outlets for customers who have been with us for at least 1 year (Do not include items that have been returned; Returned items have a negative quantity):
+What's Needed:
+- Wholesale items
+- Purchased at malls and/or outlets 
+- Customers who have been with us for at least a year
+- Do not include returned items (negative qty)
+· Client name
+· Onboard date
+· Onboard year
+· How long the client has been a customer
+· Transaction number
+· Transaction date
+· Transaction day of the week
+· Transaction month
+· Transaction quarter
+· Transaction year
+· Customer ID number
+· Location
+· Quantity
+· Price
+· Transaction amount including the wholesale discount
+· Invoice due date (Transaction date + net terms)
+· Month of invoice due date
+· Year of invoice due date */
+
+select shopping_mall.*, 
+year (shopping_mall.transaction_date) as Transaction_Year,
+dayname (shopping_mall.transaction_date) as Transaction_Day_of_Wk, 
+monthname (shopping_mall.transaction_date) as Transaction_Month,
+quarter (shopping_mall.transaction_date) as Transaction_QTR,
+wholesale_discount.discount,
+(shopping_mall.price*shopping_mall.quantity)*(1-wholesale_discount.discount)as transaction_amt,
+customer_name.*,
+year(customer_name.onboard_date) as OnboardYear,
+datediff(year,customer_name.onboard_date,getdate()) as Customer_Term,
+online_invoice.net_terms,
+dateadd(day,online_invoice.net_terms,shopping_mall.transaction_date) as Invoice_Due_Date,
+year(dateadd(day,online_invoice.net_terms,shopping_mall.transaction_date)) as InvoiceYear,
+monthname (dateadd(day,online_invoice.net_terms,shopping_mall.transaction_date)) as InvoiceMonth
+from shopping_mall left join wholesale_discount on wholesale_discount.item_name=shopping_mall.description left join customer_name on customer_name.customerid=shopping_mall.customer_id left join online_invoice on online_invoice.invoice=shopping_mall.invoice_no
+where shopping_mall.quantity >= 1 and (shopping_mall.shopping_mall like '%Mall%' OR shopping_mall.shopping_mall like '%Outlet%') and wholesale_discount.discount is not null and customer_name.customerid is not null and datediff(year,customer_name.onboard_date,getdate()) >= 1
+
+/* Return the following for non-wholesale transactions that did not take place at malls or outlets for
+customers who onboarded with us within the last 5 years:
+· Total revenue
+· Average transaction (Round to two decimal places)
+· Most expensive transaction
+· Cheapest transaction
+· Number of transactions */
+
+select 
+count(shopping_mall.invoice_no)as transcount, 
+sum(shopping_mall.price*shopping_mall.quantity) as TotalTransAmt,
+avg(shopping_mall.price*shopping_mall.quantity) as avgtransamt, 
+min(shopping_mall.price*shopping_mall.quantity)as lowesttrtansamt,
+max(shopping_mall.price*shopping_mall.quantity) as highesttransamt
+from shopping_mall full join wholesale_discount on wholesale_discount.item_name=shopping_mall.description
+full join customer_name on customer_name.customerid=shopping_mall.customer_id
+where wholesale_discount.discount is null and (shopping_mall.shopping_mall not like '%Mall%' and shopping_mall.shopping_mall not like '%Outlet%') and year(customer_name.onboard_date) >=2019
+
+/* For all non-email Netflix subscribers, we will be implementing a 12% increase for all prices for standard+ subscription packages. The CFO wants to implement these price changes 45 days from the
+start of the next quarter. Please provide a list of these subscribers along with their new monthly revenue as well as what each user's annual revenue will be with the new price increase as well as how much more we will gain in revenue on an annual basis from each user (New annual revenue with the new price increase - Previous annual revenue based on the old/previous price). */
+
+select userbase.user_id,email_sub.id,userbase.subscription_type,userbase.monthly_revenue*1.12 as NewMonthlyPriice, userbase.monthly_revenue *12 as Annualrevenue, userbase.monthly_revenue*1.12*12 as newAnnualrevenue, (userbase.monthly_revenue*1.12*12) - (userbase.monthly_revenue* 12) as annual_rev_diff, dateadd(day,45,'04/01/2024') as newQTRstart
+from email_sub right join userbase on email_sub.id=userbase.user_id
+where userbase.subscription_type != 'Basic' and email_sub.id is null
+
